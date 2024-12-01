@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from 'axios'; 
 import styled from "styled-components";
 import LogoImg from "../utils/Images/Logo.png";
 import { Link as LinkR, NavLink } from "react-router-dom";
@@ -127,9 +128,101 @@ const MobileMenu = styled.ul`
   z-index: ${({ isOpen }) => (isOpen ? "1000" : "-1000")};
 `;
 
+const ChatbotContainer = styled.div`
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: ${({ theme }) => theme.bg};
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 1000;
+`;
+
+const ChatbotWindow = styled.div`
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  background-color: ${({ theme }) => theme.bg};
+  width: 300px;
+  height: 400px;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  display: ${({ open }) => (open ? "block" : "none")};
+  z-index: 999;
+`;
+
+const ChatMessageContainer = styled.div`
+  height: 90%;
+  overflow-y: scroll;
+  padding: 10px;
+`;
+
+const ChatInput = styled.input`
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  margin-top: 10px;
+`;
+
 const Navbar = ({ currentUser }) => {
   const dispatch = useDispatch();
   const [isOpen, setisOpen] = useState(false);
+  const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+
+ 
+  const handleSendMessage = async () => {
+    if (input.trim()) {
+      setMessages([...messages, { user: true, text: input }]);
+      setInput("");
+    
+      try {
+        const response = await axios.post(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=AIzaSyD0eqaH3af_0vh3atW4pzT9soyG3u3abqA',
+          {
+            contents: [
+              {
+                parts: [{ text: input }]
+              }
+            ]
+          }
+        );
+    
+        const botMessage = response.data.candidates[0]?.content?.parts[0]?.text;
+    
+        if (botMessage) {
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { user: false, text: botMessage }
+          ]);
+        } else {
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { user: false, text: "Sorry, I couldn't understand the response." }
+          ]);
+        }
+      } catch (error) {
+        console.error("Error details:", error.response || error);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { user: false, text: "Sorry, I'm having trouble connecting right now." }
+        ]);
+      }
+    }
+  };
+  
+  
+  
+  
+
   return (
     <Nav>
       <NavContainer>
@@ -146,7 +239,6 @@ const Navbar = ({ currentUser }) => {
           <Navlink to="/workouts">Workouts</Navlink>
           <Navlink to="/tutorials">Tutorials</Navlink>
           <Navlink to="/blogs">Blogs</Navlink>
-          <Navlink to="/contact">Contact</Navlink>
         </MobileMenu>
 
         <NavItems>
@@ -154,7 +246,6 @@ const Navbar = ({ currentUser }) => {
           <Navlink to="/workouts">Workouts</Navlink>
           <Navlink to="/tutorials">Tutorials</Navlink>
           <Navlink to="/blogs">Blogs</Navlink>
-          <Navlink to="/contact">Contact</Navlink>
         </NavItems>
 
         <UserContainer>
@@ -162,6 +253,44 @@ const Navbar = ({ currentUser }) => {
           <TextButton onClick={() => dispatch(logout())}>Logout</TextButton>
         </UserContainer>
       </NavContainer>
+
+      {/* Chatbot UI */}
+      <ChatbotContainer onClick={() => setChatbotOpen(!chatbotOpen)}>
+        💬
+      </ChatbotContainer>
+
+      <ChatbotWindow open={chatbotOpen}>
+        <ChatMessageContainer>
+          {messages.map((msg, index) => (
+            <div
+              key={index}
+              style={{
+                textAlign: msg.user ? "right" : "left",
+                margin: "10px 0",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-block",
+                  padding: "10px",
+                  backgroundColor: msg.user ? "#007bff" : "#f1f1f1",
+                  color: msg.user ? "#fff" : "#000",
+                  borderRadius: "10px",
+                  maxWidth: "80%",
+                }}
+              >
+                {msg.text}
+              </div>
+            </div>
+          ))}
+        </ChatMessageContainer>
+        <ChatInput
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+          placeholder="Type a message..."
+        />
+      </ChatbotWindow>
     </Nav>
   );
 };
